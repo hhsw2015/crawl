@@ -6,11 +6,11 @@ on:
       start_page:
         description: 'Start page number (e.g., 5572)'
         required: true
-        default: '5572'
+        default: '5573'
       end_page:
         description: 'End page number (e.g., 5570)'
         required: true
-        default: '5570'
+        default: '1'
 
 jobs:
   crawl:
