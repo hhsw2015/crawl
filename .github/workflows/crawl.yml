@@ -37,11 +37,10 @@ jobs:
           python crawler.py
 
       - name: Commit and push changes
+        if: always()  # 即使爬虫失败也尝试提交
         run: |
           git config --global user.name "hhsw2015"
           git config --global user.email "hhsw2015@gmail.com"
           git add torrent_data.csv
           git commit -m "Final commit after crawl" || echo "No changes to commit"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push || echo "Push failed, possibly no changes or permission issue"
