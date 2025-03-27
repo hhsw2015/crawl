@@ -15,9 +15,8 @@ headers = {
 csv_file = "torrent_data.csv"
 MAX_RETRIES = 3
 RETRY_DELAY = 5
-COMMIT_INTERVAL = 10  # 每爬取 10 页提交一次
+COMMIT_INTERVAL = 10
 
-# 初始化 CSV 文件
 def init_csv():
     with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
@@ -25,9 +24,17 @@ def init_csv():
 
 def git_commit(message):
     """提交 CSV 文件到 Git 仓库"""
-    subprocess.run(["git", "add", csv_file], check=True)
-    subprocess.run(["git", "commit", "-m", message], check=True)
-    subprocess.run(["git", "push"], check=True)
+    try:
+        subprocess.run(["git", "add", csv_file], check=True)
+        result = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True)
+        if result.returncode == 0:
+            subprocess.run(["git", "push"], check=True)
+            print(f"Git commit successful: {message}")
+        else:
+            print(f"No changes to commit: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        print(f"Git error: {e.stderr}")
+        raise
 
 def crawl_sub_page(sub_url, page_id, index, retries=0):
     torrent_id = sub_url.split("/t/")[-1]
@@ -79,7 +86,7 @@ def crawl_sub_page(sub_url, page_id, index, retries=0):
         return {"page_id": page_id, "id": torrent_id, "name": "N/A", "magnet": "N/A", "size": "N/A", "uploader": "N/A", "index": index}
 
 def crawl_torrent_pages(start_page, end_page):
-    init_csv()  # 初始化 CSV
+    init_csv()
     pbar = tqdm(range(start_page, end_page - 1, -1), desc="Crawling pages")
     page_count = 0
 
@@ -117,7 +124,6 @@ def crawl_torrent_pages(start_page, end_page):
             page_count += 1
             if page_count % COMMIT_INTERVAL == 0:
                 git_commit(f"Update data for pages {page_id + COMMIT_INTERVAL - 1} to {page_id}")
-                print(f"Committed data up to page {page_id}")
 
             pbar.update(1)
 
@@ -125,15 +131,12 @@ def crawl_torrent_pages(start_page, end_page):
             print(f"Error fetching page {url}: {e}")
             time.sleep(5)
 
-    # 最后提交剩余数据
     if page_count % COMMIT_INTERVAL != 0:
         git_commit(f"Final update for pages {start_page} to {end_page}")
-        print(f"Committed final data")
 
 if __name__ == "__main__":
     print("Starting crawl...")
-    # 从命令行参数或环境变量获取开始和结束页面
-    start_page = int(os.getenv("START_PAGE", 5572))  # 默认 5572
-    end_page = int(os.getenv("END_PAGE", 5570))      # 默认 5570
+    start_page = int(os.getenv("START_PAGE", 5572))
+    end_page = int(os.getenv("END_PAGE", 5570))
     crawl_torrent_pages(start_page, end_page)
     print(f"Data saved to {csv_file}")
