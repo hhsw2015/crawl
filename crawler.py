@@ -7,6 +7,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 import os
 import subprocess
+import logging
+
+# 配置日志
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -21,19 +25,24 @@ def init_csv():
     with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(["page_id", "id", "name", "magnet", "size", "uploader"])
+    logging.info("Initialized CSV file")
 
 def git_commit(message):
     """提交 CSV 文件到 Git 仓库"""
     try:
+        # 配置 Git 身份
+        subprocess.run(["git", "config", "--global", "user.email", "hhsw2015@gmail.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "hhsw2015"], check=True)
+
         subprocess.run(["git", "add", csv_file], check=True)
         result = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True)
         if result.returncode == 0:
             subprocess.run(["git", "push"], check=True)
-            print(f"Git commit successful: {message}")
+            logging.info(f"Git commit successful: {message}")
         else:
-            print(f"No changes to commit: {result.stderr}")
+            logging.warning(f"No changes to commit: {result.stderr}")
     except subprocess.CalledProcessError as e:
-        print(f"Git error: {e.stderr}")
+        logging.error(f"Git error: {e.stderr}")
         raise
 
 def crawl_sub_page(sub_url, page_id, index, retries=0):
@@ -56,7 +65,7 @@ def crawl_sub_page(sub_url, page_id, index, retries=0):
             uploader = info_div.find("a", class_="torrent_uploader")
 
             magnet = f"magnet:?xt=urn:btih:{hash_info.text.replace('[hash_info]:', '').strip()}" if hash_info else "N/A"
-            print(f"Sub-page data - page_id: {page_id}, id: {torrent_id}, name: {name.text if name else 'N/A'}, magnet: {magnet}")
+            logging.info(f"Sub-page data - page_id: {page_id}, id: {torrent_id}, name: {name.text if name else 'N/A'}, magnet: {magnet}")
 
             data = {
                 "page_id": page_id,
@@ -69,20 +78,20 @@ def crawl_sub_page(sub_url, page_id, index, retries=0):
             }
             return data
         else:
-            print(f"No torrent_info_div found on {sub_url}")
+            logging.warning(f"No torrent_info_div found on {sub_url}")
             return {"page_id": page_id, "id": torrent_id, "name": "N/A", "magnet": "N/A", "size": "N/A", "uploader": "N/A", "index": index}
 
     except requests.RequestException as e:
-        print(f"Error fetching sub-page {sub_url}: {e}")
+        logging.error(f"Error fetching sub-page {sub_url}: {e}")
         if retries < MAX_RETRIES:
-            print(f"Retrying {sub_url} ({retries + 1}/{MAX_RETRIES}) after {RETRY_DELAY} seconds...")
+            logging.info(f"Retrying {sub_url} ({retries + 1}/{MAX_RETRIES}) after {RETRY_DELAY} seconds...")
             time.sleep(RETRY_DELAY)
             return crawl_sub_page(sub_url, page_id, index, retries + 1)
         else:
-            print(f"Max retries reached for {sub_url}. Stopping program.")
+            logging.error(f"Max retries reached for {sub_url}. Stopping program.")
             sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error on {sub_url}: {e}")
+        logging.error(f"Unexpected error on {sub_url}: {e}")
         return {"page_id": page_id, "id": torrent_id, "name": "N/A", "magnet": "N/A", "size": "N/A", "uploader": "N/A", "index": index}
 
 def crawl_torrent_pages(start_page, end_page):
@@ -98,7 +107,7 @@ def crawl_torrent_pages(start_page, end_page):
             soup = BeautifulSoup(response.text, 'html.parser')
 
             torrent_elements = soup.find_all("div", class_="torrent_element_text_div")
-            print(f"Page {page_id}: Found {len(torrent_elements)} torrent elements")
+            logging.info(f"Page {page_id}: Found {len(torrent_elements)} torrent elements")
 
             sub_tasks = []
             for index, element in enumerate(torrent_elements):
@@ -128,15 +137,15 @@ def crawl_torrent_pages(start_page, end_page):
             pbar.update(1)
 
         except requests.RequestException as e:
-            print(f"Error fetching page {url}: {e}")
+            logging.error(f"Error fetching page {url}: {e}")
             time.sleep(5)
 
     if page_count % COMMIT_INTERVAL != 0:
         git_commit(f"Final update for pages {start_page} to {end_page}")
 
 if __name__ == "__main__":
-    print("Starting crawl...")
+    logging.info("Starting crawl...")
     start_page = int(os.getenv("START_PAGE", 5572))
     end_page = int(os.getenv("END_PAGE", 5570))
     crawl_torrent_pages(start_page, end_page)
-    print(f"Data saved to {csv_file}")
+    logging.info(f"Data saved to {csv_file}")
