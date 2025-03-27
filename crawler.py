@@ -22,10 +22,14 @@ RETRY_DELAY = 5
 COMMIT_INTERVAL = 10
 
 def init_csv():
-    with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow(["page_id", "id", "name", "magnet", "size", "uploader"])
-    logging.info("Initialized CSV file")
+    """初始化 CSV 文件，如果文件不存在则创建并写入表头"""
+    if not os.path.exists(csv_file):
+        with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["page_id", "id", "name", "magnet", "size", "uploader"])
+        logging.info("Initialized new CSV file")
+    else:
+        logging.info(f"CSV file '{csv_file}' already exists, skipping initialization")
 
 def git_commit(message):
     """提交 CSV 文件到 Git 仓库"""
