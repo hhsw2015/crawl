@@ -1,0 +1,47 @@
+name: Crawl Torrent Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_page:
+        description: 'Start page number (e.g., 5572)'
+        required: true
+        default: '5573'
+      end_page:
+        description: 'End page number (e.g., 5570)'
+        required: true
+        default: '1'
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 tqdm
+
+      - name: Run crawler
+        env:
+          START_PAGE: ${{ github.event.inputs.start_page }}
+          END_PAGE: ${{ github.event.inputs.end_page }}
+        run: |
+          python crawler.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "hhsw2015"
+          git config --global user.email "hhsw2015@gmail.com"
+          git add torrent_data.csv
+          git commit -m "Final commit after crawl" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
