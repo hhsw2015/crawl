@@ -6,11 +6,11 @@ on:
       start_page:
         description: 'Start page number (e.g., 5572)'
         required: true
-        default: '5573'
+        default: '5572'
       end_page:
         description: 'End page number (e.g., 5570)'
         required: true
-        default: '1'
+        default: '5570'
 
 jobs:
   crawl:
@@ -29,6 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 tqdm
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "hhsw2015"
+          git config --global user.email "hhsw2015@gmail.com"
+
       - name: Run crawler
         env:
           START_PAGE: ${{ github.event.inputs.start_page }}
@@ -37,10 +42,8 @@ jobs:
           python crawler.py
 
       - name: Commit and push changes
-        if: always()  # 即使爬虫失败也尝试提交
+        if: always()
         run: |
-          git config --global user.name "hhsw2015"
-          git config --global user.email "hhsw2015@gmail.com"
           git add torrent_data.csv
           git commit -m "Final commit after crawl" || echo "No changes to commit"
           git push || echo "Push failed, possibly no changes or permission issue"
