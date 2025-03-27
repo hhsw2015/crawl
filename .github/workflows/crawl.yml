@@ -12,6 +12,9 @@ on:
         required: true
         default: '1'
 
+permissions:
+  contents: write  # 授予写权限
+
 jobs:
   crawl:
     runs-on: ubuntu-latest
